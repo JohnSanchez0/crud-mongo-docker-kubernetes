@@ -12,89 +12,78 @@
 
 <body>
     <div class="app-container">
-        <!-- Panel Izquierdo -->
         <aside class="glass-panel">
             <div class="brand">
                 <i data-lucide="shield-check" size="32"></i>
-                <h1>CrudHibrido</h1>
+                <h1>Gestión de Usuarios</h1>
             </div>
 
             <section class="form-wrapper">
-                <span class="form-title" id="form-title">Registro de Usuario</span>
+                <span class="form-title" id="form-title">Registrar Usuario</span>
 
                 <input type="hidden" id="act_id">
 
                 <div class="input-block">
                     <label>Nombre Completo</label>
-                    <input type="text" id="crear_nombre" class="custom-input" placeholder="p. ej. Sebastian">
+                    <input type="text" id="crear_nombre" class="custom-input" placeholder="Ej. Sebastián Sánchez">
                 </div>
 
                 <div class="input-block">
                     <label>Correo Electrónico</label>
-                    <input type="email" id="crear_email" class="custom-input" placeholder="ejemplo@correo.com">
+                    <input type="email" id="crear_email" class="custom-input" placeholder="correo@ejemplo.com">
                 </div>
 
                 <div class="input-block">
                     <label>Edad</label>
-                    <input type="number" id="crear_edad" class="custom-input" placeholder="21">
+                    <input type="number" id="crear_edad" class="custom-input" placeholder="25">
                 </div>
 
                 <button id="btn-save" class="btn-primary" onclick="guardar()">
                     <i data-lucide="zap"></i>
-                    <span>Ejecutar Acción</span>
+                    <span>Guardar</span>
                 </button>
 
                 <button id="btn-cancel" class="btn-cancel" style="display:none;" onclick="limpiarFormulario()">
                     <i data-lucide="rotate-ccw"></i>
-                    <span>Restaurar Formulario</span>
+                    <span>Cancelar edición</span>
                 </button>
 
-                <!-- Indicadores de Salud de los Clústeres -->
                 <div class="connection-status">
                     <div class="status-item">
                         <div id="dot-local" class="dot"></div>
-                        <span>LOCAL RS</span>
-                    </div>
-                    <div class="status-item">
-                        <div id="dot-atlas" class="dot"></div>
-                        <span>ATLAS CLOUD</span>
+                        <span>Base de Datos</span>
                     </div>
                 </div>
             </section>
         </aside>
 
-        <!-- Área Principal -->
         <main class="main-content">
             <div class="header-row">
-                <h2>Directorio Actual</h2>
-                <button class="icon-btn" onclick="cargar()" title="Sincronizar">
+                <h2>Usuarios Registrados</h2>
+                <button class="icon-btn" onclick="cargar()" title="Actualizar lista">
                     <i data-lucide="refresh-cw"></i>
                 </button>
             </div>
 
-            <div id="user-grid" class="grid">
-                <!-- Tarjetas inyectadas vía JS -->
-            </div>
+            <div id="user-grid" class="grid"></div>
         </main>
     </div>
 
-    <!-- Modal de Confirmación -->
     <div id="delete-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-icon">
                 <i data-lucide="alert-triangle" size="32"></i>
             </div>
-            <h3>¿Eliminar Usuario?</h3>
-            <p>Esta acción no se puede deshacer. El registro desaparecerá del clúster permanentemente.</p>
+            <h3>¿Eliminar usuario?</h3>
+            <p>Esta acción no se puede deshacer. El usuario se eliminará permanentemente de la base de datos.</p>
             <div class="modal-actions">
-                <button class="btn-danger" onclick="ejecutarBorrado()">Eliminar ahora</button>
+                <button class="btn-danger" onclick="ejecutarBorrado()">Eliminar</button>
                 <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
             </div>
         </div>
     </div>
 
-    <!-- Notificaciones -->
-    <div id="toast">Operación Exitosa</div>
+    <div id="toast">Operación realizada con éxito</div>
 
     <script>
         let editMode = false;
@@ -104,15 +93,13 @@
             try {
                 const res = await fetch('/health');
                 const health = await res.json();
-
                 const dotLocal = document.getElementById('dot-local');
-                const dotAtlas = document.getElementById('dot-atlas');
 
-                if (health.local) dotLocal.className = 'dot online';
-                else dotLocal.className = 'dot offline';
-
-                if (health.atlas) dotAtlas.className = 'dot online';
-                else dotAtlas.className = 'dot offline';
+                if (health.local) {
+                    dotLocal.className = 'dot online';
+                } else {
+                    dotLocal.className = 'dot offline';
+                }
 
                 lucide.createIcons();
             } catch (err) { }
@@ -125,8 +112,6 @@
             setTimeout(() => { t.classList.remove('show'); }, 3000);
         }
 
-
-        // --- Gestión del Modal ---
         function abrirModal(id) {
             idParaEliminar = id;
             document.getElementById('delete-modal').classList.add('active');
@@ -140,12 +125,12 @@
         async function ejecutarBorrado() {
             if (!idParaEliminar) return;
             try {
-                const res = await fetch(`/usuarios/${idParaEliminar}`, { method: 'DELETE' });
-                showToast("Registro eliminado");
+                await fetch(`/usuarios/${idParaEliminar}`, { method: 'DELETE' });
+                showToast("Usuario eliminado correctamente");
                 cerrarModal();
                 cargar();
             } catch (err) {
-                showToast("Error al eliminar");
+                showToast("No se pudo eliminar el usuario");
             }
         }
 
@@ -157,7 +142,7 @@
                 grid.innerHTML = '';
 
                 if (usuarios.length === 0) {
-                    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--text-secondary); padding: 4rem;">Sin registros en el clúster.</div>';
+                    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--text-secondary); padding: 4rem;">No hay usuarios registrados.</div>';
                     return;
                 }
 
@@ -188,7 +173,7 @@
                 });
                 lucide.createIcons();
             } catch (err) {
-                showToast("Falla de conexión");
+                showToast("Error de conexión con el servidor");
             }
         }
 
@@ -198,8 +183,8 @@
             document.getElementById('crear_email').value = '';
             document.getElementById('crear_edad').value = '';
 
-            document.getElementById('form-title').innerText = "Registro de Usuario";
-            document.getElementById('btn-save').querySelector('span').innerText = "Ejecutar Acción";
+            document.getElementById('form-title').innerText = "Registrar Usuario";
+            document.getElementById('btn-save').querySelector('span').innerText = "Guardar";
             document.getElementById('btn-cancel').style.display = 'none';
             editMode = false;
         }
@@ -210,8 +195,8 @@
             document.getElementById('crear_email').value = email;
             document.getElementById('crear_edad').value = edad;
 
-            document.getElementById('form-title').innerText = "Modo Edición";
-            document.getElementById('btn-save').querySelector('span').innerText = "Actualizar Clúster";
+            document.getElementById('form-title').innerText = "Editar Usuario";
+            document.getElementById('btn-save').querySelector('span').innerText = "Guardar cambios";
             document.getElementById('btn-cancel').style.display = 'block';
             editMode = true;
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -226,7 +211,7 @@
             };
 
             if (!datos.nombre || !datos.email) {
-                showToast("Datos incompletos");
+                showToast("Por favor, completa los campos requeridos");
                 return;
             }
 
@@ -240,18 +225,18 @@
                     body: JSON.stringify(datos)
                 });
 
-                showToast(editMode ? "Clúster actualizado" : "Usuario registrado");
+                showToast(editMode ? "Usuario actualizado correctamente" : "Usuario registrado correctamente");
                 limpiarFormulario();
                 cargar();
             } catch (err) {
-                showToast("Error de servidor");
+                showToast("Error interno del servidor");
             }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             cargar();
-            updateHealth(); // Carga inicial
-            setInterval(updateHealth, 5000); // Polling cada 5s
+            updateHealth();
+            setInterval(updateHealth, 5000);
             lucide.createIcons();
         });
     </script>
