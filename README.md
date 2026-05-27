@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/docker/metadata-action/master/branding/logo.png" alt="Logo del Proyecto" width="100" height="100" />
+  <img src="assets/logo.png" alt="Logo del Proyecto" width="100" height="100" />
 </p>
 
 <h1 align="center">CRUD con MongoDB Replica Set</h1>
