@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  PORT: "4000"
+  MONGODB_URI: "mongodb://mongo-0.mongo-headless:27017,mongo-1.mongo-headless:27017,mongo-2.mongo-headless:27017/?replicaSet=RP"
+  MONGODB_DB: "prueba"
+  MONGODB_COLLECTION: "usuarios"

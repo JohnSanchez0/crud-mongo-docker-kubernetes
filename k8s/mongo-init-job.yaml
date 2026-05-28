@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongo-init-job
+spec:
+  template:
+    spec:
+      containers:
+        - name: mongo-init
+          image: mongo:7.0
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Waiting for MongoDB nodes to start..."
+              sleep 15
+              mongosh --host mongo-0.mongo-headless:27017 --eval '
+                rs.initiate({
+                  _id: "RP",
+                  members: [
+                    { _id: 0, host: "mongo-0.mongo-headless:27017" },
+                    { _id: 1, host: "mongo-1.mongo-headless:27017" },
+                    { _id: 2, host: "mongo-2.mongo-headless:27017" }
+                  ]
+                })
+              '
+      restartPolicy: Never
+  backoffLimit: 5

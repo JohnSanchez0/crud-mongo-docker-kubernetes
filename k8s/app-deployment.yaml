@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crud-mongo-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crud-mongo-app
+  template:
+    metadata:
+      labels:
+        app: crud-mongo-app
+    spec:
+      containers:
+        - name: crud-mongo-app
+          image: crud-mongo-app:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4000
+          envFrom:
+            - configMapRef:
+                name: app-config

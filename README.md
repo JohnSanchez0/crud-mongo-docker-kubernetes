@@ -2,171 +2,164 @@
   <img src="assets/logo.png" alt="Logo del Proyecto" width="100" height="100" />
 </p>
 
-<h1 align="center">CRUD con MongoDB Replica Set</h1>
+<h1 align="center">CRUD con MongoDB Replica Set en Kubernetes</h1>
 
 <p align="center">
-  Entorno robusto y de alta disponibilidad desarrollado con MongoDB (Replica Set), Docker Compose y Node.js.
+  Entorno robusto, cloud-native y de alta disponibilidad desarrollado con MongoDB (Replica Set), Kubernetes (K8s), Docker y Node.js.
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white" alt="Kubernetes" />
   <img src="https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB" />
   <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
   <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js" />
-  <img src="https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express" />
 </p>
 
 ---
 
-## Introduccion
+## Introducción
 
-Este repositorio aloja una solucion practica orientada a la gestion de usuarios, implementando una arquitectura tolerante a fallos mediante un clúster local de MongoDB. El proyecto demuestra de forma empirica el comportamiento de un **Replica Set** (RS) en entornos contenerizados, asegurando que las operaciones CRUD nunca se interrumpan, incluso ante la caida critica de nodos de base de datos.
+Este repositorio aloja una solución orientada a la gestión de usuarios bajo un enfoque de **Sistemas Distribuidos** de alto nivel. Hemos migrado la infraestructura monolítica inicial hacia una arquitectura moderna y tolerante a fallos, implementando un clúster distribuido de **MongoDB Replica Set** orquestado en **Kubernetes**. 
 
-> La alta disponibilidad no es una caracteristica opcional; es la base de cualquier sistema moderno en producción.
+El proyecto demuestra empíricamente el comportamiento del consenso, auto-recuperación y failover de bases de datos en caliente, garantizando disponibilidad absoluta del servicio web CRUD incluso ante la pérdida de servidores físicos de datos.
 
----
-
-## El Problema y la Solucion
-
-### El Desafio
-En entornos de base de datos tradicionales con un solo nodo, cualquier caida del servidor de base de datos interrumpe el servicio por completo, provocando perdida de datos en transito o downtime prolongado mientras el administrador del sistema interviene manualmente.
-
-### La Respuesta
-Este proyecto implementa una arquitectura automatizada de replicacion activa con un clúster de MongoDB compuesto por:
-- **Un nodo primario** que recibe escrituras y lecturas de forma predeterminada.
-- **Dos nodos secundarios** que replican constantemente el dataset y pueden asumir el rol de lider en cuestion de milisegundos.
-- **Un nodo arbitro** que actua exclusivamente como juez en elecciones en caso de falla.
-
-Todo el ecosistema se levanta y configura automaticamente con un solo comando, abstrayendo la complejidad de red e inicializacion.
+> La alta disponibilidad no es una característica opcional; es la base de cualquier sistema moderno en producción.
 
 ---
 
-## Caracteristicas Principales
+## El Desafío y la Solución Cloud-Native
 
-- **Tolerancia a fallos automatizada**: Failover transparente y transparente para la aplicacion sin necesidad de reconfigurar parametros de conexion.
-- **Liderazgo preferencial**: Nodo lider preferente configurado por prioridad para centralizar el tráfico primario bajo condiciones ideales.
-- **Monitoreo integrado**: Interfaz web intuitiva que grafica en tiempo real el estado de salud de la conexion.
-- **Orquestación modular**: Estructura lista para integracion en ambientes de orquestacion local de contenedores.
+### El Desafío
+En entornos tradicionales con un solo nodo, la caída física del servidor interrumpe el servicio por completo, provocando pérdida de datos y caídas prolongadas mientras el administrador interviene manualmente.
+
+### La Respuesta (Kubernetes + Replica Set)
+Este proyecto implementa una arquitectura automatizada de replicación activa distribuida en Kubernetes mediante:
+- **StatefulSet**: Controla 3 réplicas idénticas de MongoDB (`mongo-0`, `mongo-1`, `mongo-2`) manteniendo identidades de red y persistencia inmutables.
+- **Persistent Volume Claims (PVCs)**: Discos de almacenamiento dedicados a cada nodo que sobreviven a la destrucción y recreación de contenedores (Self-Healing).
+- **Headless Service**: Otorga direcciones DNS estables a nivel de clúster (`mongo-X.mongo-headless`) requeridas por el Replica Set para comunicarse.
+- **Job de Auto-Inicialización**: Un Job automatizado que se ejecuta una sola vez para configurar el Replica Set sin intervención humana.
 
 ---
 
-## Arquitectura del Entorno
+## Arquitectura del Entorno (Kubernetes)
 
-La red interna de Docker se compone de los siguientes elementos trabajando de manera coordinada:
+El tráfico de red y la topología distribuidos dentro del clúster de Kubernetes se estructuran de la siguiente manera:
 
 ```mermaid
 graph TD
-    Client[Cliente/Navegador] -->|HTTP:4000| App[Contenedor Node.js App]
-    App -->|Conexión ReplicaSet| Nodo1[(Nodo 1 - Primario - 27017)]
-    Nodo1 -->|Replicación Síncrona| Nodo2[(Nodo 2 - Secundario - 27018)]
-    Nodo1 -->|Replicación Síncrona| Nodo3[(Nodo 3 - Secundario - 27019)]
-    Nodo1 -.->|Votación/Monitoreo| Arb((Árbitro - 27020))
-    Nodo2 -.->|Votación/Monitoreo| Arb
-    Nodo3 -.->|Votación/Monitoreo| Arb
+    Client[Cliente / Navegador] -->|NodePort: 30000| ServiceApp[Servicio: crud-mongo-service]
+    ServiceApp -->|Puerto 4000| AppPod[Pod: crud-mongo-app]
+    AppPod -->|DNS Headless| Headless[Servicio: mongo-headless]
+    Headless -->|mongo-0.mongo-headless:27017| Pod0[(Pod: mongo-0 - Primary)]
+    Headless -->|mongo-1.mongo-headless:27017| Pod1[(Pod: mongo-1 - Secondary)]
+    Headless -->|mongo-2.mongo-headless:27017| Pod2[(Pod: mongo-2 - Secondary)]
+    Pod0 <-->|Sincronización y Consenso| Pod1
+    Pod0 <-->|Sincronización y Consenso| Pod2
+    Pod1 <-->|Sincronización y Consenso| Pod2
 ```
 
-| Contenedor | Puerto Local | Rol en el Clúster | Descripcion |
-| :--- | :--- | :--- | :--- |
-| `nodo1` | `27017` | Primario (Prioridad 2) | Nodo preferente para operaciones de escritura y lectura. |
-| `nodo2` | `27018` | Secundario (Prioridad 1) | Copia de respaldo activa. Elegible como primario. |
-| `nodo3` | `27019` | Secundario (Prioridad 1) | Copia de respaldo activa. Elegible como primario. |
-| `arb` | `27020` | Árbitro | No almacena datos. Solo vota para desempatar elecciones. |
-| `crud-mongo-docker-kubernetes` | `4000` | Aplicación Web | Servidor Express que interactua con el clúster. |
+---
+
+## Estructura del Repositorio
+
+```text
+├── k8s/                           # Manifiestos de Kubernetes
+│   ├── app-configmap.yaml         # Variables de entorno descentralizadas
+│   ├── app-deployment.yaml        # Despliegue de la API Node.js
+│   ├── app-service.yaml           # Exposición externa mediante NodePort (30000)
+│   ├── mongo-headless-service.yaml# DNS estables para el Replica Set
+│   ├── mongo-statefulset.yaml     # 3 Réplicas Mongo con almacenamiento persistente (PVC)
+│   └── mongo-init-job.yaml        # Inicializador automático del clúster
+├── Dockerfile                     # Construcción inmutable multi-stage para Node.js
+├── docker-compose.yml             # Resguardo securizado local (Entorno Docker clásico)
+├── server.js                      # API con lógica de reconexión activa y validaciones BSON
+└── index.html                     # Frontend interactivo para consumo del CRUD
+```
 
 ---
 
-## Requisitos Previos
+## Despliegue en Kubernetes (Minikube)
 
-Asegurate de contar con el siguiente software instalado en tu equipo de desarrollo:
-
-- Docker Engine y Docker Compose V2
-- Git (para control de versiones)
-
----
-
-## Instalacion y Despliegue
-
-Sigue estos pasos para clonar el repositorio e iniciar el entorno contenerizado de forma local:
+Sigue estos sencillos pasos para iniciar y probar la arquitectura en tu clúster local:
 
 ```bash
-# 1. Clonar el repositorio
-git clone https://github.com/JohnSanchez0/crud-mongo-docker-kubernetes.git
+# 1. Iniciar el clúster de Minikube (Driver Docker recomendado en Windows)
+minikube start
 
-# 2. Entrar al directorio
-cd crud-mongo-docker-kubernetes
+# 2. Compilar la aplicación Node.js de forma inmutable
+docker build -t crud-mongo-app:latest .
 
-# 3. Levantar los contenedores en segundo plano
-docker compose up -d
+# 3. Cargar la imagen directamente en la memoria de Minikube
+minikube image load crud-mongo-app:latest
+
+# 4. Desplegar toda la infraestructura en Kubernetes
+kubectl apply -f k8s/
 ```
 
-> **Nota de inicializacion**: El clúster tarda aproximadamente 10 a 15 segundos en auto-configurarse completamente la primera vez mediante el servicio automatizado `mongo-init` incluido en el archivo de orquestación.
+### Verificación de Pods en Ejecución
+Puedes monitorear el encendido secuencial de tus pods ejecutando:
+```bash
+kubectl get pods -w
+```
+*Espera a que los pods de mongo (0, 1, 2) estén en estado `Running` y el pod `mongo-init-job` en estado `Completed`.*
+
+### Acceso a la Aplicación Web
+Para interactuar con el CRUD, solicita el túnel de red de Minikube:
+```bash
+minikube service crud-mongo-service --url
+```
+Copia y pega la dirección devuelta en tu navegador (ej: `http://127.0.0.1:64567`) para comenzar a registrar usuarios.
 
 ---
 
-## Uso y Administracion
+## Auditoría y Pruebas de Resiliencia
 
-### Acceso a la Interfaz de Usuario
-Una vez levantado el entorno, abre tu navegador web e ingresa a la siguiente URL:
-`http://localhost:4000`
-
-Aqui podras registrar, editar, visualizar y eliminar usuarios, verificando al mismo tiempo el estado de salud de la base de datos de forma dinamica.
-
-### Verificacion de Estado del Clúster (Sustentación)
-Puedes consultar el estado detallado del Replica Set en cualquier momento ejecutando el shell de MongoDB directamente en cualquiera de los contenedores de base de datos activos:
-
+### 1. Consultar los Roles del Replica Set en Tiempo Real
+Puedes validar de forma instantánea qué nodo ha sido elegido como primario y el estado de los secundarios ejecutando:
 ```bash
-# Si el Nodo 1 es el activo actual:
-docker exec -it nodo1 mongosh --port 27017 --eval "rs.status()"
-
-# Si el Nodo 1 ha sido apagado, puedes consultar al Nodo 2:
-docker exec -it nodo2 mongosh --port 27018 --eval "rs.status()"
+kubectl exec mongo-0 -- mongosh --quiet --eval "rs.status().members.forEach(m => print(m.name + ' -> ' + m.stateStr))"
 ```
 
-### Simulacion de Failover (Alta Disponibilidad)
-Para comprobar la tolerancia a fallos en tiempo real:
-1. Apaga el nodo primario (`nodo1`):
-   ```bash
-   docker stop nodo1
-   ```
-2. Consulta el estado de base de datos desde `nodo2` u observa la consola de la aplicacion: veras como se convoca a una eleccion automatica y se designa un nuevo nodo primario.
-3. Interactua con la aplicacion web (`http://localhost:4000`). La creacion y edicion de usuarios continuaran funcionando sin perdida de informacion.
+### 2. Prueba de Tolerancia a Fallos (Self-Healing)
+Mientras tienes la aplicación abierta, elimina forzosamente el pod líder del clúster:
+```bash
+kubectl delete pod mongo-0
+```
+Verás que Kubernetes levanta un nuevo pod de inmediato. Si actualizas tu navegador, **los datos se mantendrán intactos** gracias al desacoplamiento de discos (`PVC`), y la API seguirá respondiendo tras un rápido traspaso de roles de líder.
+
+### 3. Prueba de Fuego Avanzada (Congelamiento de Red/CPU)
+Envía una señal de suspensión al proceso de base de datos del líder para simular un bloqueo de red en caliente:
+```bash
+# Pausar temporalmente el proceso de MongoDB en el líder
+kubectl exec mongo-0 -- kill -STOP 1
+```
+El clúster detectará el congelamiento y elegirá a un nuevo líder de inmediato en menos de 5 segundos. Posteriormente, descongela al nodo dañado para ver cómo se reincorpora al clúster como secundario de soporte:
+```bash
+kubectl exec mongo-0 -- kill -CONT 1
+```
 
 ---
 
 ## Roadmap del Proyecto
 
-<details>
-  <summary>Ver plan de desarrollo a mediano y largo plazo</summary>
+### ✅ Fase 1: Estabilización (Completado)
+* [x] Remover dependencias en la nube (MongoDB Atlas).
+* [x] Unificar todo el entorno de almacenamiento y ejecución localmente.
+* [x] Blindaje de la API con validación estricta de BSON (`ObjectId.isValid`) y control de reconexión.
 
-### Fase 1: Estabilizacion
-- [x] Remover dependencias en la nube (MongoDB Atlas).
-- [x] Unificar todo el entorno de almacenamiento y ejecucion localmente.
-- [x] Limpieza de logs y refactorizacion de comentarios y mensajes de API.
+### ✅ Fase 2: Kubernetes y Cloud Native (Completado)
+* [x] Creación de manifiestos Yaml de Kubernetes.
+* [x] Implementación de **StatefulSets** y **PVCs** para MongoDB.
+* [x] Configuración de **Headless Services** para enrutamiento DNS del Replica Set.
+* [x] Despliegue de API y exposición segura mediante **NodePort (30000)**.
+* [x] Automatización de inicialización del Replica Set mediante un Job de K8s.
 
-### Fase 2: Kubernetes y Cloud Native
-- [ ] Creación de manifiestos Yaml para despliegue en Kubernetes local (Minikube / k3s).
-- [ ] Implementación de StatefulSets para los nodos de MongoDB.
-- [ ] Configuración de Headless Services para mantener la estabilidad de red de los nodos de datos.
-- [ ] Configuración del Deployment y el Service de la aplicación Node en Kubernetes.
-
-### Fase 3: Seguridad
-- [ ] Implementación de autenticación Keyfile para la comunicacion interna del Replica Set.
-- [ ] Encriptación de secrets de base de datos en Kubernetes.
-
-</details>
-
----
-
-## Contribucion
-
-Si deseas colaborar con el proyecto o proponer mejoras:
-1. Haz un Fork del repositorio.
-2. Crea una rama para tu feature (`git checkout -b feature/nueva-mejora`).
-3. Confirma tus cambios (`git commit -m "feat: agregar nueva mejora"`).
-4. Sube la rama (`git push origin feature/nueva-mejora`).
-5. Abre un Pull Request describiendo detalladamente tu propuesta.
+### 🚀 Fase 3: Hardening y Seguridad (Siguientes Pasos)
+* [ ] Implementación de autenticación Keyfile para la comunicación interna del Replica Set.
+* [ ] Encriptación de secrets de base de datos en Kubernetes.
 
 ---
 
 ## Licencia
 
-Este proyecto se distribuye bajo la Licencia MIT. Consulta el archivo `LICENSE` (si aplica) para mayor información.
+Este proyecto se distribuye bajo la Licencia MIT.

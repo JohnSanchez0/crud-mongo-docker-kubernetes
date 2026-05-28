@@ -2,27 +2,37 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
-const PORT = 4000;
+const PORT = process.env.PORT || 4000;
 
 app.use(express.json());
 app.use(express.static('.'));
 
-const localUrl = "mongodb://nodo1:27017,nodo2:27018,nodo3:27019/?replicaSet=RP";
+const localUrl = process.env.MONGODB_URI || "mongodb://nodo1:27017,nodo2:27018,nodo3:27019/?replicaSet=RP";
 
-const dbName = 'prueba';
-const collectionName = 'usuarios';
+const dbName = process.env.MONGODB_DB || 'prueba';
+const collectionName = process.env.MONGODB_COLLECTION || 'usuarios';
 
 const localClient = new MongoClient(localUrl, { serverSelectionTimeoutMS: 5000 });
 
 let localDB = null;
 
 async function conectarBases() {
-    try {
-        await localClient.connect();
-        localDB = localClient.db(dbName);
-        console.log("Conectado a la base de datos MongoDB (Local RS)");
-    } catch (err) {
-        console.error("Error de conexión en base de datos local:", err.message);
+    let retries = 15;
+    while (retries > 0) {
+        try {
+            await localClient.connect();
+            localDB = localClient.db(dbName);
+            console.log("Conectado a la base de datos MongoDB (Local RS)");
+            return; // Conexión exitosa
+        } catch (err) {
+            console.error(`Error de conexión en base de datos local. Reintentos restantes: ${retries - 1}. Error: ${err.message}`);
+            retries -= 1;
+            if (retries === 0) {
+                console.error("No se pudo establecer conexión con la base de datos después de múltiples reintentos.");
+            } else {
+                await new Promise(res => setTimeout(res, 5000)); // Esperar 5 segundos antes de reintentar
+            }
+        }
     }
 }
 
@@ -49,9 +59,17 @@ app.post('/usuarios', async (req, res) => {
     if (!localDB) {
         return res.status(503).json({ error: "Base de datos no disponible" });
     }
+
+    const { nombre, email, edad } = req.body;
+    if (!nombre || !email) {
+        return res.status(400).json({ error: "Los campos 'nombre' y 'email' son obligatorios." });
+    }
+
     const nuevoUsuario = {
         _id: new ObjectId(),
-        ...req.body
+        nombre,
+        email,
+        edad
     };
 
     try {
@@ -68,6 +86,11 @@ app.put('/usuarios/:id', async (req, res) => {
         return res.status(503).json({ error: "Base de datos no disponible" });
     }
     const id = req.params.id;
+
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ error: "El ID proporcionado no tiene un formato válido." });
+    }
+
     const { _id, ...updateData } = req.body;
 
     try {
@@ -84,6 +107,10 @@ app.delete('/usuarios/:id', async (req, res) => {
         return res.status(503).json({ error: "Base de datos no disponible" });
     }
     const id = req.params.id;
+
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ error: "El ID proporcionado no tiene un formato válido." });
+    }
 
     try {
         await localDB.collection(collectionName).deleteOne({ _id: new ObjectId(id) });

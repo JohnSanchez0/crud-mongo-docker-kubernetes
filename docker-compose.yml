@@ -1,60 +1,55 @@
 services:
   nodo1:
-    image: mongo:latest
+    image: mongo:7.0
     container_name: nodo1
     command: ["mongod", "--replSet", "RP", "--bind_ip_all", "--port", "27017"]
-    ports:
-      - "27017:27017"
     volumes:
       - ./data/nodo1:/data/db
-    restart: "no"
+    restart: unless-stopped
 
   nodo2:
-    image: mongo:latest
+    image: mongo:7.0
     container_name: nodo2
     command: ["mongod", "--replSet", "RP", "--bind_ip_all", "--port", "27018"]
-    ports:
-      - "27018:27018"
     volumes:
       - ./data/nodo2:/data/db
-    restart: "no"
+    restart: unless-stopped
 
   nodo3:
-    image: mongo:latest
+    image: mongo:7.0
     container_name: nodo3
     command: ["mongod", "--replSet", "RP", "--bind_ip_all", "--port", "27019"]
-    ports:
-      - "27019:27019"
     volumes:
       - ./data/nodo3:/data/db
-    restart: "no"
+    restart: unless-stopped
 
   arb:
-    image: mongo:latest
+    image: mongo:7.0
     container_name: arb
     command: ["mongod", "--replSet", "RP", "--bind_ip_all", "--port", "27020"]
-    ports:
-      - "27020:27020"
     volumes:
       - ./data/arb:/data/db
-    restart: "no"
+    restart: unless-stopped
 
   app:
-    image: node:latest
+    build: .
+    image: crud-mongo-app:latest
     container_name: crud-mongo-docker-kubernetes
-    working_dir: /usr/src/app
-    volumes:
-      - .:/usr/src/app
-    command: sh -c "npm install && node server.js"
     ports:
       - "4000:4000"
     depends_on:
       - nodo1
       - nodo2
       - nodo3
+    environment:
+      - PORT=4000
+      - MONGODB_URI=mongodb://nodo1:27017,nodo2:27018,nodo3:27019/?replicaSet=RP
+      - MONGODB_DB=prueba
+      - MONGODB_COLLECTION=usuarios
+    restart: unless-stopped
 
   mongo-init:
-    image: mongo:latest
+    image: mongo:7.0
     container_name: mongo-init
     depends_on:
       - nodo1
