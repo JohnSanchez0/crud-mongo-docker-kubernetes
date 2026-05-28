@@ -19,12 +19,12 @@ spec:
                   rs.initiate({
                     _id: "RP",
                     members: [
-                      { _id: 0, host: "mongo-0.mongo-headless:27017" },
-                      { _id: 1, host: "mongo-1.mongo-headless:27017" },
-                      { _id: 2, host: "mongo-2.mongo-headless:27017" }
+                      { _id: 0, host: "mongo-0.mongo-headless:27017", priority: 2 },
+                      { _id: 1, host: "mongo-1.mongo-headless:27017", priority: 1 },
+                      { _id: 2, host: "mongo-2.mongo-headless:27017", priority: 1 }
                     ]
                   });
-                  print("Replica Set initialized successfully.");
+                  print("Replica Set initialized successfully with mongo-0 as preferred primary.");
                 } catch (err) {
                   if (err.message.includes("already initialized")) {
                     print("Replica Set already initialized. Proceeding safely...");
